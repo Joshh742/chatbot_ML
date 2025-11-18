@@ -1,0 +1,14 @@
+[
+  {
+    "kata_kunci": ["paracetamol", "panadol", "biogesic"],
+    "nama_obat": "Paracetamol (Obat Bebas)",
+    "kegunaan_umum": "Meredakan demam dan nyeri ringan hingga sedang (sakit kepala, sakit gigi).",
+    "peringatan_keras": "JANGAN gunakan jika Anda memiliki gangguan hati berat. JANGAN melebihi dosis 8 tablet (4000mg) dalam 24 jam. Penggunaan berlebih dapat menyebabkan kerusakan hati fatal."
+  },
+  {
+    "kata_kunci": ["antasida", "promag", "mylanta", "polysilane"],
+    "nama_obat": "Antasida (Obat Bebas)",
+    "kegunaan_umum": "Menetralkan asam lambung, meredakan gejala maag, kembung, dan GERD ringan.",
+    "peringatan_keras": "JANGAN digunakan jangka panjang tanpa anjuran dokter. Hati-hati jika Anda memiliki penyakit ginjal. Konsultasikan ke dokter jika gejala tidak membaik dalam 1 minggu."
+  }
+]
