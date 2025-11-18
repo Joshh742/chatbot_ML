@@ -55,6 +55,7 @@ def panggil_gemini(pertanyaan):
         print("ERROR: panggil_gemini dipanggil tapi model=None.")
         return "Maaf, AI sedang mengalami gangguan (Model Load Error). Periksa log server."
 
+    # PROMPT BARU (ANTI BINTANG *)
     instruksi_tugas = (
         "Anda adalah asisten kesehatan AI untuk tugas kampus. "
         "Peran Anda adalah menjawab pertanyaan pengguna tentang kesehatan. "
@@ -62,15 +63,19 @@ def panggil_gemini(pertanyaan):
         "Anda BOLEH memberikan jawaban yang informatif. "
         "Sebutkan obat bebas (OTC) yang umum (seperti Paracetamol untuk demam) DAN pola hidup yang disarankan. "
         "SELALU akhiri jawaban Anda dengan peringatan bahwa Anda adalah AI dan jawaban ini tidak menggantikan nasihat dokter profesional. "
-        "Jawab dalam bahasa Indonesia yang ringkas dan jelas untuk WhatsApp."
+        "Jawab dalam bahasa Indonesia yang ringkas dan jelas untuk WhatsApp. "
+        "PENTING: JANGAN gunakan tanda bintang (*) untuk menebalkan teks atau formatting. "
+        "Gunakan teks biasa saja, poin-poin menggunakan angka atau strip (-), dan spasi antar paragraf agar rapi."
     )
 
     try:
         response = model.generate_content(f"{instruksi_tugas}\n\nPertanyaan Pengguna: {pertanyaan}")
-        return response.text
+        # Pembersihan ekstra: Hapus bintang jika Gemini masih bandel
+        teks_bersih = response.text.replace('*', '')
+        return teks_bersih
     except Exception as e:
         print(f"ERROR: Gagal memanggil Gemini API: {e}")
-        return "Maaf, AI sedang mengalami gangguan (API Call Error). Silakan coba lagi nanti." 
+        return "Maaf, AI sedang mengalami gangguan (API Call Error). Silakan coba lagi nanti."
 
 # LOGIKA PEMROSESAN PESAN
 def proses_pesan(pesan_masuk):
