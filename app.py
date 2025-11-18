@@ -1,4 +1,3 @@
-# app.py
 from flask import Flask, request, jsonify
 import requests
 import json
@@ -9,7 +8,6 @@ from dotenv import load_dotenv
 
 app = Flask(__name__)
 
-# --- 1. Muat API Key dari file .env ---
 load_dotenv()
 FONNTE_TOKEN = os.getenv("FONNTE_TOKEN")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
@@ -17,9 +15,6 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 if not FONNTE_TOKEN or not GEMINI_API_KEY:
     print("FATAL ERROR: Pastikan FONNTE_TOKEN dan GEMINI_API_KEY ada di file .env Anda!")
 
-# --- 2. Konfigurasi Model Gemini ---
-# PENTING: Nama variabelnya 'model' (bukan 'gemini_model')
-# PENTING: Nama modelnya 'gemini-1.5-flash-latest' (tanpa 'models/')
 model = None 
 try:
     genai.configure(api_key=GEMINI_API_KEY)
@@ -29,7 +24,6 @@ except Exception as e:
     print(f"ERROR FATAL SAAT STARTUP: Gagal konfigurasi Gemini: {e}")
     print("Model AI TIDAK AKAN berfungsi.")
 
-# --- 3. Variabel Global & Fungsi Pembantu ---
 DATABASE_OBAT = []
 
 def load_database_obat():
@@ -72,15 +66,13 @@ def panggil_gemini(pertanyaan):
     )
 
     try:
-        # PENTING: Nama variabelnya 'model' (bukan 'gemini_model')
         response = model.generate_content(f"{instruksi_tugas}\n\nPertanyaan Pengguna: {pertanyaan}")
         return response.text
     except Exception as e:
         print(f"ERROR: Gagal memanggil Gemini API: {e}")
-        # Jika error v1beta muncul lagi, berarti library masih lama
         return "Maaf, AI sedang mengalami gangguan (API Call Error). Silakan coba lagi nanti." 
 
-# --- 4. OTAK UTAMA BOT (LOGIKA HIBRIDA) ---
+# LOGIKA PEMROSESAN PESAN
 def proses_pesan(pesan_masuk):
     teks = pesan_masuk.lower().strip()
     balasan = ""
@@ -121,7 +113,7 @@ def proses_pesan(pesan_masuk):
     
     return balasan
 
-# --- 5. WEBHOOK ENDPOINT (PINTU MASUK FONNTE) ---
+# WEBHOOK ENDPOINT 
 @app.route('/webhook-fonnte', methods=['POST'])
 def webhook_fonnte():
     try:
@@ -138,7 +130,7 @@ def webhook_fonnte():
         print(f"ERROR memproses webhook: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
-# --- 6. Jalankan Server Flask ---
+# Jalankan Server 
 if __name__ == '__main__':
     load_database_obat()
     print("Server chatbot Flask (Versi Tugas Kampus - PERMISIF) berjalan di port 5000...")
