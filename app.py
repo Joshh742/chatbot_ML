@@ -80,10 +80,10 @@ def proses_pesan(pesan_masuk):
     if teks in ['halo', 'hi', 'menu', 'pagi']:
         balasan = (
             "Halo kawan! 👋 Selamat datang di Asisten Kesehatan (Versi Tugas Kampus).\n\n"
-            "**DISCLAIMER:** Saya adalah AI untuk demo. Informasi ini mungkin tidak akurat dan tidak menggantikan nasihat medis profesional.\n\n"
+            "DISCLAIMER: Saya adalah AI untuk demo. Informasi ini mungkin tidak akurat dan tidak menggantikan nasihat medis profesional.\n\n"
             "Silakan ketik pertanyaan Anda:\n"
-            "➡️ *Info [Nama Obat]* (Contoh: Info Paracetamol)\n"
-            "➡️ *Obat untuk demam dan pola hidupnya*"
+            "➡️ Info [Nama Obat] (Contoh: Info Paracetamol)\n"
+            "➡️ Obat untuk demam dan pola hidupnya"
         )
         return balasan
 
