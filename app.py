@@ -69,7 +69,6 @@ def panggil_gemini(pertanyaan):
 
     try:
         response = model.generate_content(f"{instruksi_tugas}\n\nPertanyaan Pengguna: {pertanyaan}")
-        # Pembersihan ekstra: Hapus bintang jika Gemini masih bandel
         teks_bersih = response.text.replace('*', '')
         return teks_bersih
     except Exception as e:
