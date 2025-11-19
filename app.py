@@ -57,7 +57,7 @@ def panggil_gemini(pertanyaan):
 
     # PROMPT BARU (ANTI BINTANG *)
     instruksi_tugas = (
-        "Anda adalah asisten kesehatan AI untuk tugas kampus. "
+        "Anda adalah asisten kesehatan AI. "
         "Peran Anda adalah menjawab pertanyaan pengguna tentang kesehatan. "
         "Ketika pengguna bertanya tentang 'obat apa' dan 'pola hidup apa' untuk suatu penyakit (misal: 'demam'), "
         "Anda BOLEH memberikan jawaban yang informatif. "
