@@ -55,7 +55,6 @@ def panggil_gemini(pertanyaan):
         print("ERROR: panggil_gemini dipanggil tapi model=None.")
         return "Maaf, AI sedang mengalami gangguan (Model Load Error). Periksa log server."
 
-    # PROMPT BARU (ANTI BINTANG *)
     instruksi_tugas = (
         "Anda adalah asisten kesehatan AI. "
         "Peran Anda adalah menjawab pertanyaan pengguna tentang kesehatan. "
