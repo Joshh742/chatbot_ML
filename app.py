@@ -22,18 +22,45 @@ try:
     print("Koneksi ke Gemini API berhasil.")
 except Exception as e:
     print(f"ERROR FATAL SAAT STARTUP: Gagal konfigurasi Gemini: {e}")
-    print("Model AI TIDAK AKAN berfungsi.")
 
+# --- DATABASE ---
 DATABASE_OBAT = []
+USERS_DB = {} # Dictionary untuk menyimpan data user {nomor: {'nama': 'Budi', 'status': 'active'}}
 
 def load_database_obat():
     global DATABASE_OBAT
     try:
+        # Buat file dummy jika tidak ada agar tidak error
+        if not os.path.exists('database_obat.json'):
+             with open('database_obat.json', 'w') as f: json.dump([], f)
+        
         with open('database_obat.json', 'r', encoding='utf-8') as f:
             DATABASE_OBAT = json.load(f)
-        print(f"Berhasil memuat {len(DATABASE_OBAT)} data obat dari JSON.")
+        print(f"Berhasil memuat {len(DATABASE_OBAT)} data obat.")
     except Exception as e:
         print(f"ERROR: Gagal memuat database_obat.json: {e}")
+
+def load_users():
+    """Memuat data user dari file JSON agar ingatan tidak hilang saat restart"""
+    global USERS_DB
+    try:
+        if not os.path.exists('users.json'):
+            with open('users.json', 'w') as f:
+                json.dump({}, f)
+        
+        with open('users.json', 'r', encoding='utf-8') as f:
+            USERS_DB = json.load(f)
+        print(f"Berhasil memuat {len(USERS_DB)} data pengguna.")
+    except Exception as e:
+        print(f"ERROR: Gagal memuat users.json: {e}")
+
+def save_users():
+    """Menyimpan data user ke file JSON"""
+    try:
+        with open('users.json', 'w', encoding='utf-8') as f:
+            json.dump(USERS_DB, f, indent=2)
+    except Exception as e:
+        print(f"ERROR: Gagal menyimpan users.json: {e}")
 
 def kirim_balasan_fonnte(nomor_tujuan, teks_balasan):
     url_api_fonnte = "https://api.fonnte.com/send"
@@ -42,78 +69,97 @@ def kirim_balasan_fonnte(nomor_tujuan, teks_balasan):
     
     try:
         response = requests.post(url_api_fonnte, headers=headers, data=payload)
-        response.raise_for_status() 
+        # response.raise_for_status() # Opsional: uncomment jika ingin strict
         print(f"Berhasil mengirim balasan ke {nomor_tujuan}")
     except requests.exceptions.RequestException as e:
         print(f"ERROR: Gagal mengirim balasan ke Fonnte: {e}")
 
-def panggil_gemini(pertanyaan):
+def panggil_gemini(pertanyaan, nama_user):
     """
-    Mengirim pertanyaan ke Gemini API dengan instruksi TUGAS KAMPUS.
+    Mengirim pertanyaan ke Gemini API dengan konteks NAMA PENGGUNA.
     """
     if model is None:
-        print("ERROR: panggil_gemini dipanggil tapi model=None.")
-        return "Maaf, AI sedang mengalami gangguan (Model Load Error). Periksa log server."
+        return "Maaf, AI sedang mengalami gangguan."
 
     instruksi_tugas = (
-        "Anda adalah asisten kesehatan AI. "
+        f"Anda adalah asisten kesehatan AI yang ramah. "
+        f"Nama pengguna yang sedang Anda ajak bicara adalah: {nama_user}. "
+        f"Sapa dia dengan namanya sesekali agar terasa personal. "
         "Peran Anda adalah menjawab pertanyaan pengguna tentang kesehatan. "
-        "Ketika pengguna bertanya tentang 'obat apa' dan 'pola hidup apa' untuk suatu penyakit (misal: 'demam'), "
-        "Anda BOLEH memberikan jawaban yang informatif. "
-        "Sebutkan obat bebas (OTC) yang umum (seperti Paracetamol untuk demam) DAN pola hidup yang disarankan. "
-        "SELALU akhiri jawaban Anda dengan peringatan bahwa Anda adalah AI dan jawaban ini tidak menggantikan nasihat dokter profesional. "
-        "Jawab dalam bahasa Indonesia yang ringkas dan jelas untuk WhatsApp. "
-        "PENTING: JANGAN gunakan tanda bintang (*) untuk menebalkan teks atau formatting. "
-        "Gunakan teks biasa saja, poin-poin menggunakan angka atau strip (-), dan spasi antar paragraf agar rapi."
+        "Jika ditanya obat, sebutkan obat bebas (OTC) dan pola hidup sehat. "
+        "Akhiri jawaban dengan disclaimer bahwa Anda AI dan bukan dokter. "
+        "Jangan gunakan tanda bintang (*) untuk formatting, gunakan teks biasa."
     )
 
     try:
-        response = model.generate_content(f"{instruksi_tugas}\n\nPertanyaan Pengguna: {pertanyaan}")
+        response = model.generate_content(f"{instruksi_tugas}\n\nPertanyaan {nama_user}: {pertanyaan}")
         teks_bersih = response.text.replace('*', '')
         return teks_bersih
     except Exception as e:
-        print(f"ERROR: Gagal memanggil Gemini API: {e}")
-        return "Maaf, AI sedang mengalami gangguan (API Call Error). Silakan coba lagi nanti."
+        print(f"ERROR Gemini: {e}")
+        return "Maaf, AI sedang sibuk. Coba lagi nanti."
 
-# LOGIKA PEMROSESAN PESAN
-def proses_pesan(pesan_masuk):
-    teks = pesan_masuk.lower().strip()
-    balasan = ""
+# --- LOGIKA UTAMA ---
+def proses_pesan(pesan_masuk, nomor_pengirim):
+    """
+    Sekarang menerima nomor_pengirim untuk mengecek identitas.
+    """
+    teks = pesan_masuk.strip() # Jangan di lower dulu jika itu adalah Nama orang
+    
+    # 1. CEK IDENTITAS PENGGUNA
+    # Jika nomor belum ada di database atau belum punya nama
+    if nomor_pengirim not in USERS_DB:
+        # Inisialisasi user baru dengan status 'menunggu_nama'
+        USERS_DB[nomor_pengirim] = {'nama': None, 'status': 'menunggu_nama'}
+        save_users()
+        return "Halo! Selamat datang di Asisten Kesehatan.\nSebelum kita mulai, bolehkah saya tahu siapa nama panggilan Anda?"
 
-    if teks in ['halo', 'hi', 'menu', 'pagi']:
-        balasan = (
-            "Halo kawan! 👋 Selamat datang di Asisten Kesehatan.\n\n"
-            "DISCLAIMER: Informasi ini mungkin tidak akurat dan tidak menggantikan nasihat medis profesional.\n\n"
-            "Silakan ketik pertanyaan Anda:\n"
-            "➡️ Info [Nama Obat] (Contoh: Info Paracetamol)\n"
-            "➡️ Obat untuk demam dan pola hidupnya"
+    user_data = USERS_DB[nomor_pengirim]
+
+    # 2. PROSES PENYIMPANAN NAMA (Jika statusnya masih menunggu_nama)
+    if user_data.get('status') == 'menunggu_nama':
+        nama_baru = teks  # Pesan yang masuk dianggap sebagai nama
+        USERS_DB[nomor_pengirim]['nama'] = nama_baru
+        USERS_DB[nomor_pengirim]['status'] = 'registered' # Ubah status jadi terdaftar
+        save_users()
+        return (f"Salam kenal, {nama_baru}! data Anda sudah saya simpan.\n\n"
+                "Sekarang Anda bisa bertanya tentang:\n"
+                "- Info [Nama Obat]\n"
+                "- Tips kesehatan/penyakit")
+
+    # Ambil nama user untuk percakapan selanjutnya
+    nama_user = user_data['nama']
+    teks_lower = teks.lower()
+
+    # 3. LOGIKA CHATBOT NORMAL (Sudah kenal)
+    if teks_lower in ['halo', 'hi', 'menu', 'pagi', 'siang', 'malam']:
+        return (
+            f"Halo {nama_user}! 👋 Senang bertemu Anda kembali.\n\n"
+            "Ketik pertanyaan Anda, misalnya:\n"
+            "➡️ Info Paracetamol\n"
+            "➡️ Cara mengatasi flu tanpa obat"
         )
-        return balasan
+    
+    # Fitur Ganti Nama (Opsional)
+    if teks_lower == 'ganti nama':
+        USERS_DB[nomor_pengirim]['status'] = 'menunggu_nama'
+        save_users()
+        return "Oke, silakan ketik nama baru Anda:"
 
-    if teks.startswith('info'):
-        ditemukan = False
+    # Cek Database Lokal
+    if teks_lower.startswith('info'):
+        # Logika pencarian obat lokal (sama seperti sebelumnya)
         for obat in DATABASE_OBAT:
             for kata in obat['kata_kunci']:
-                if kata in teks:
-                    balasan = (
-                        f"Menampilkan informasi untuk: **{obat['nama_obat']}**\n\n"
-                        f"**Kegunaan Umum:**\n{obat['kegunaan_umum']}\n\n"
-                        f"**PERINGATAN KERAS:**\n{obat['peringatan_keras']}"
-                    )
-                    ditemukan = True
-                    break
-            if ditemukan: break
-        
-        if ditemukan:
-            return balasan
-        else:
-            print(f"Obat '{teks}' tidak ada di JSON, melempar ke Gemini...")
-            balasan = panggil_gemini(pesan_masuk)
-            return balasan
-
-    print(f"Tidak ada aturan lokal, melempar '{teks}' ke Gemini...")
-    balasan = panggil_gemini(pesan_masuk)
+                if kata in teks_lower:
+                    return (f"Halo {nama_user}, berikut infonya:\n\n"
+                            f"**{obat['nama_obat']}**\n"
+                            f"Kegunaan: {obat['kegunaan_umum']}\n"
+                            f"Peringatan: {obat['peringatan_keras']}")
     
+    # Lempar ke Gemini jika tidak ada di database lokal
+    print(f"User {nama_user} bertanya: {teks} -> Kirim ke Gemini")
+    balasan = panggil_gemini(pesan_masuk, nama_user)
     return balasan
 
 # WEBHOOK ENDPOINT 
@@ -121,20 +167,25 @@ def proses_pesan(pesan_masuk):
 def webhook_fonnte():
     try:
         data = request.json
-        print(f"Menerima data dari Fonnte: {json.dumps(data, indent=2)}")
+        print(f"Debug Fonnte: {json.dumps(data, indent=2)}")
+        
         pesan_masuk = data.get('message')
         nomor_pengirim = data.get('sender')
         is_group = data.get('isGroup', False)
+        
         if pesan_masuk and nomor_pengirim and not is_group:
-            teks_balasan = proses_pesan(pesan_masuk)
+            # Kita kirim nomor_pengirim juga ke fungsi proses_pesan
+            teks_balasan = proses_pesan(pesan_masuk, nomor_pengirim)
             kirim_balasan_fonnte(nomor_pengirim, teks_balasan)
+            
         return jsonify({"status": "ok"}), 200
     except Exception as e:
-        print(f"ERROR memproses webhook: {e}")
+        print(f"ERROR webhook: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
 # Jalankan Server 
 if __name__ == '__main__':
     load_database_obat()
-    print("Server chatbot Flask (Versi Tugas Kampus - PERMISIF) berjalan di port 5000...")
+    load_users() # Load data user saat server nyala
+    print("Server chatbot berjalan...")
     app.run(debug=True, port=5000)
