@@ -25,12 +25,11 @@ except Exception as e:
 
 # --- DATABASE ---
 DATABASE_OBAT = []
-USERS_DB = {} # Dictionary untuk menyimpan data user {nomor: {'nama': 'Budi', 'status': 'active'}}
+USERS_DB = {} 
 
 def load_database_obat():
     global DATABASE_OBAT
     try:
-        # Buat file dummy jika tidak ada agar tidak error
         if not os.path.exists('database_obat.json'):
              with open('database_obat.json', 'w') as f: json.dump([], f)
         
@@ -69,7 +68,6 @@ def kirim_balasan_fonnte(nomor_tujuan, teks_balasan):
     
     try:
         response = requests.post(url_api_fonnte, headers=headers, data=payload)
-        # response.raise_for_status() # Opsional: uncomment jika ingin strict
         print(f"Berhasil mengirim balasan ke {nomor_tujuan}")
     except requests.exceptions.RequestException as e:
         print(f"ERROR: Gagal mengirim balasan ke Fonnte: {e}")
@@ -104,23 +102,21 @@ def proses_pesan(pesan_masuk, nomor_pengirim):
     """
     Sekarang menerima nomor_pengirim untuk mengecek identitas.
     """
-    teks = pesan_masuk.strip() # Jangan di lower dulu jika itu adalah Nama orang
+    teks = pesan_masuk.strip() 
     
     # 1. CEK IDENTITAS PENGGUNA
-    # Jika nomor belum ada di database atau belum punya nama
     if nomor_pengirim not in USERS_DB:
-        # Inisialisasi user baru dengan status 'menunggu_nama'
         USERS_DB[nomor_pengirim] = {'nama': None, 'status': 'menunggu_nama'}
         save_users()
         return "Halo! Selamat datang di Asisten Kesehatan.\nSebelum kita mulai, bolehkah saya tahu siapa nama panggilan Anda?"
 
     user_data = USERS_DB[nomor_pengirim]
 
-    # 2. PROSES PENYIMPANAN NAMA (Jika statusnya masih menunggu_nama)
+    # 2. PROSES PENYIMPANAN NAMA 
     if user_data.get('status') == 'menunggu_nama':
-        nama_baru = teks  # Pesan yang masuk dianggap sebagai nama
+        nama_baru = teks  
         USERS_DB[nomor_pengirim]['nama'] = nama_baru
-        USERS_DB[nomor_pengirim]['status'] = 'registered' # Ubah status jadi terdaftar
+        USERS_DB[nomor_pengirim]['status'] = 'registered' 
         save_users()
         return (f"Salam kenal, {nama_baru}! data Anda sudah saya simpan.\n\n"
                 "Sekarang Anda bisa bertanya tentang:\n"
@@ -131,7 +127,7 @@ def proses_pesan(pesan_masuk, nomor_pengirim):
     nama_user = user_data['nama']
     teks_lower = teks.lower()
 
-    # 3. LOGIKA CHATBOT NORMAL (Sudah kenal)
+    # 3. LOGIKA CHATBOT NORMAL 
     if teks_lower in ['halo', 'hi', 'menu', 'pagi', 'siang', 'malam']:
         return (
             f"Halo {nama_user}! 👋 Senang bertemu Anda kembali.\n\n"
@@ -140,7 +136,7 @@ def proses_pesan(pesan_masuk, nomor_pengirim):
             "➡️ Cara mengatasi flu tanpa obat"
         )
     
-    # Fitur Ganti Nama (Opsional)
+    # Fitur Ganti Nama 
     if teks_lower == 'ganti nama':
         USERS_DB[nomor_pengirim]['status'] = 'menunggu_nama'
         save_users()
@@ -148,7 +144,6 @@ def proses_pesan(pesan_masuk, nomor_pengirim):
 
     # Cek Database Lokal
     if teks_lower.startswith('info'):
-        # Logika pencarian obat lokal (sama seperti sebelumnya)
         for obat in DATABASE_OBAT:
             for kata in obat['kata_kunci']:
                 if kata in teks_lower:
@@ -157,7 +152,6 @@ def proses_pesan(pesan_masuk, nomor_pengirim):
                             f"Kegunaan: {obat['kegunaan_umum']}\n"
                             f"Peringatan: {obat['peringatan_keras']}")
     
-    # Lempar ke Gemini jika tidak ada di database lokal
     print(f"User {nama_user} bertanya: {teks} -> Kirim ke Gemini")
     balasan = panggil_gemini(pesan_masuk, nama_user)
     return balasan
@@ -174,7 +168,6 @@ def webhook_fonnte():
         is_group = data.get('isGroup', False)
         
         if pesan_masuk and nomor_pengirim and not is_group:
-            # Kita kirim nomor_pengirim juga ke fungsi proses_pesan
             teks_balasan = proses_pesan(pesan_masuk, nomor_pengirim)
             kirim_balasan_fonnte(nomor_pengirim, teks_balasan)
             
