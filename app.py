@@ -84,7 +84,7 @@ def panggil_gemini(pertanyaan, nama_user):
         f"Nama pengguna yang sedang Anda ajak bicara adalah: {nama_user}. "
         f"Sapa dia dengan namanya sesekali agar terasa personal. "
         "Peran Anda adalah menjawab pertanyaan pengguna tentang kesehatan. "
-        "Jika ditanya obat, sebutkan obat bebas (OTC) dan pola hidup sehat. "
+        "Jika ditanya obat, sebutkan obat bebas (OTC), dan jika tidak ada obat (OTC) sebutkan saja obat selain (OTC) dan pola hidup sehat. "
         "Akhiri jawaban dengan disclaimer bahwa Anda AI dan bukan dokter. "
         "Jangan gunakan tanda bintang (*) untuk formatting, gunakan teks biasa."
     )
