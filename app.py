@@ -86,6 +86,7 @@ def panggil_gemini_dengan_memori(pesan_baru, nama_user, history_user):
         "Langung simpulkan obat nya apa baik OTC atau bukan OTC, serta pola hidup sehat yang dianjurkan. "
         "Jangan memberikan saran medis yang rumit atau diagnosis, buatkan jawaban yang mudah dimengerti, dan singkat. "
         "Jangan gunakan tanda bintang (*) untuk formatting, gunakan teks biasa."
+        "Jika menanyakan pola hidup hanya jelaskan pola hidup, jika tanya penyakit hanya jelaskan penyakit, dan jika tanya obat hanya jelaskan dan berikan obatnya."
     )
 
     try:
