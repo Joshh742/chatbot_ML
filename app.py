@@ -1,13 +1,13 @@
 from flask import Flask, request, jsonify
 import requests
 import json
-import re
 import os
 import google.generativeai as genai
 from dotenv import load_dotenv
 
 app = Flask(__name__)
 
+# --- KONFIGURASI ENV ---
 load_dotenv()
 FONNTE_TOKEN = os.getenv("FONNTE_TOKEN")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
@@ -15,17 +15,17 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 if not FONNTE_TOKEN or not GEMINI_API_KEY:
     print("FATAL ERROR: Pastikan FONNTE_TOKEN dan GEMINI_API_KEY ada di file .env Anda!")
 
-model = None 
+# --- KONFIGURASI GEMINI ---
 try:
     genai.configure(api_key=GEMINI_API_KEY)
-    model = genai.GenerativeModel('gemini-2.5-flash')
     print("Koneksi ke Gemini API berhasil.")
 except Exception as e:
     print(f"ERROR FATAL SAAT STARTUP: Gagal konfigurasi Gemini: {e}")
 
-# --- DATABASE ---
+# --- DATABASE & CONSTANT ---
 DATABASE_OBAT = []
 USERS_DB = {} 
+MAX_HISTORY_LIMIT = 20  # Batasi memori
 
 def load_database_obat():
     global DATABASE_OBAT
@@ -40,7 +40,7 @@ def load_database_obat():
         print(f"ERROR: Gagal memuat database_obat.json: {e}")
 
 def load_users():
-    """Memuat data user dari file JSON agar ingatan tidak hilang saat restart"""
+    """Memuat data user DAN riwayat chat dari file JSON"""
     global USERS_DB
     try:
         if not os.path.exists('users.json'):
@@ -54,7 +54,7 @@ def load_users():
         print(f"ERROR: Gagal memuat users.json: {e}")
 
 def save_users():
-    """Menyimpan data user ke file JSON"""
+    """Menyimpan data user termasuk history chat ke file JSON"""
     try:
         with open('users.json', 'w', encoding='utf-8') as f:
             json.dump(USERS_DB, f, indent=2)
@@ -68,18 +68,16 @@ def kirim_balasan_fonnte(nomor_tujuan, teks_balasan):
     
     try:
         response = requests.post(url_api_fonnte, headers=headers, data=payload)
-        print(f"Berhasil mengirim balasan ke {nomor_tujuan}")
     except requests.exceptions.RequestException as e:
         print(f"ERROR: Gagal mengirim balasan ke Fonnte: {e}")
 
-def panggil_gemini(pertanyaan, nama_user):
+def panggil_gemini_dengan_memori(pesan_baru, nama_user, history_user):
     """
-    Mengirim pertanyaan ke Gemini API dengan konteks NAMA PENGGUNA.
+    Mengirim pesan ke Gemini dengan menyertakan riwayat percakapan sebelumnya
+    dan instruksi sistem yang dinamis sesuai nama user.
     """
-    if model is None:
-        return "Maaf, AI sedang mengalami gangguan."
-
-    instruksi_tugas = (
+    # Instruksi sistem yang disesuaikan dengan permintaan Anda
+    instruksi_khusus = (
         f"Anda adalah asisten kesehatan AI yang ramah. "
         f"Nama pengguna yang sedang Anda ajak bicara adalah: {nama_user}. "
         f"Sapa dia dengan namanya sesekali agar terasa personal. "
@@ -92,70 +90,88 @@ def panggil_gemini(pertanyaan, nama_user):
     )
 
     try:
-        response = model.generate_content(f"{instruksi_tugas}\n\nPertanyaan {nama_user}: {pertanyaan}")
-        teks_bersih = response.text.replace('*', '')
-        return teks_bersih
+        # Inisialisasi model di sini agar system_instruction bisa mengambil variable {nama_user}
+        model = genai.GenerativeModel(
+            model_name='gemini-2.5-flash',
+            system_instruction=instruksi_khusus
+        )
+
+        # 1. Mulai sesi chat dengan history yang ada
+        chat_session = model.start_chat(history=history_user)
+        
+        # 2. Kirim pesan baru
+        response = chat_session.send_message(pesan_baru)
+        
+        # Hapus tanda bintang (jika masih ada yang lolos) agar rapi di WA
+        teks_bersih = response.text.replace('*', '') 
+        
+        # 3. Ambil history terbaru dari object chat_session
+        updated_history = []
+        for content in chat_session.history:
+            role = content.role
+            text_part = content.parts[0].text if content.parts else ""
+            updated_history.append({"role": role, "parts": [text_part]})
+
+        # Jaga agar history tidak terlalu panjang
+        if len(updated_history) > MAX_HISTORY_LIMIT:
+            updated_history = updated_history[-MAX_HISTORY_LIMIT:]
+
+        return teks_bersih, updated_history
+
     except Exception as e:
-        print(f"ERROR Gemini: {e}")
-        return "Maaf, AI sedang sibuk. Coba lagi nanti."
+        print(f"ERROR Gemini Chat: {e}")
+        return "Maaf, saya sedikit pusing. Bisakah diulangi?", history_user
 
 # --- LOGIKA UTAMA ---
 def proses_pesan(pesan_masuk, nomor_pengirim):
-    """
-    Sekarang menerima nomor_pengirim untuk mengecek identitas.
-    """
     teks = pesan_masuk.strip() 
     
     # 1. CEK IDENTITAS PENGGUNA
     if nomor_pengirim not in USERS_DB:
-        USERS_DB[nomor_pengirim] = {'nama': None, 'status': 'menunggu_nama'}
+        USERS_DB[nomor_pengirim] = {
+            'nama': None, 
+            'status': 'menunggu_nama', 
+            'history': [] 
+        }
         save_users()
         return "Halo! Selamat datang di PilBot, Saya adalah asisten kesehatan AI\nSebelum kita mulai, bolehkah saya tahu siapa nama panggilan Anda?"
 
     user_data = USERS_DB[nomor_pengirim]
 
+    if 'history' not in user_data:
+        user_data['history'] = []
+
     # 2. PROSES PENYIMPANAN NAMA 
     if user_data.get('status') == 'menunggu_nama':
-        nama_baru = teks  
+        nama_baru = teks 
         USERS_DB[nomor_pengirim]['nama'] = nama_baru
         USERS_DB[nomor_pengirim]['status'] = 'registered' 
         save_users()
-        return (f"Salam kenal, {nama_baru}! data Anda sudah saya simpan.\n\n"
-                "Sekarang Anda bisa bertanya tentang:\n"
-                "- Info [Nama Obat]\n"
-                "- Tips kesehatan/penyakit")
+        return (f"Salam kenal, {nama_baru}! Data Anda sudah saya simpan.\n\n"
+                "Sekarang Anda bisa bertanya tentang penyakit atau obat, dan saya akan mengingat percakapan kita.")
 
-    # Ambil nama user untuk percakapan selanjutnya
     nama_user = user_data['nama']
     teks_lower = teks.lower()
 
-    # 3. LOGIKA CHATBOT NORMAL 
-    if teks_lower in ['halo', 'hi', 'menu', 'pagi', 'siang', 'malam']:
-        return (
-            f"Halo {nama_user}! 👋 Senang bertemu Anda kembali.\n\n"
-            "Ketik pertanyaan Anda, misalnya:\n"
-            "➡️ Info Paracetamol\n"
-            "➡️ Cara mengatasi flu tanpa obat"
-        )
-    
-    # Fitur Ganti Nama 
+    # 3. COMMAND KHUSUS
+    if teks_lower == 'reset':
+        USERS_DB[nomor_pengirim]['history'] = []
+        save_users()
+        return "Riwayat percakapan telah dihapus. Kita mulai dari awal ya!"
+
     if teks_lower == 'ganti nama':
         USERS_DB[nomor_pengirim]['status'] = 'menunggu_nama'
         save_users()
         return "Oke, silakan ketik nama baru Anda:"
 
-    # Cek Database Lokal
-    if teks_lower.startswith('info'):
-        for obat in DATABASE_OBAT:
-            for kata in obat['kata_kunci']:
-                if kata in teks_lower:
-                    return (f"Halo {nama_user}, berikut infonya:\n\n"
-                            f"**{obat['nama_obat']}**\n"
-                            f"Kegunaan: {obat['kegunaan_umum']}\n"
-                            f"Peringatan: {obat['peringatan_keras']}")
+    # 4. LOGIKA CHATBOT DENGAN MEMORI
+    print(f"User {nama_user} bertanya: {teks} (History len: {len(user_data['history'])})")
     
-    print(f"User {nama_user} bertanya: {teks} -> Kirim ke Gemini")
-    balasan = panggil_gemini(pesan_masuk, nama_user)
+    balasan, history_baru = panggil_gemini_dengan_memori(teks, nama_user, user_data['history'])
+    
+    USERS_DB[nomor_pengirim]['history'] = history_baru
+    save_users() 
+    
     return balasan
 
 # WEBHOOK ENDPOINT 
@@ -163,8 +179,6 @@ def proses_pesan(pesan_masuk, nomor_pengirim):
 def webhook_fonnte():
     try:
         data = request.json
-        print(f"Debug Fonnte: {json.dumps(data, indent=2)}")
-        
         pesan_masuk = data.get('message')
         nomor_pengirim = data.get('sender')
         is_group = data.get('isGroup', False)
@@ -181,6 +195,6 @@ def webhook_fonnte():
 # Jalankan Server 
 if __name__ == '__main__':
     load_database_obat()
-    load_users() # Load data user saat server nyala
-    print("Server chatbot berjalan...")
+    load_users()
+    print("Server chatbot berjalan dengan fitur Memori Percakapan & Instruksi Baru...")
     app.run(debug=True, port=5000)
