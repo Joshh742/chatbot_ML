@@ -25,7 +25,7 @@ except Exception as e:
 # --- DATABASE & CONSTANT ---
 DATABASE_OBAT = []
 USERS_DB = {} 
-MAX_HISTORY_LIMIT = 20  # Batasi memori
+MAX_HISTORY_LIMIT = 20  
 
 def load_database_obat():
     global DATABASE_OBAT
@@ -76,7 +76,6 @@ def panggil_gemini_dengan_memori(pesan_baru, nama_user, history_user):
     Mengirim pesan ke Gemini dengan menyertakan riwayat percakapan sebelumnya
     dan instruksi sistem yang dinamis sesuai nama user.
     """
-    # Instruksi sistem yang disesuaikan dengan permintaan Anda
     instruksi_khusus = (
         f"Anda adalah asisten kesehatan AI yang ramah. "
         f"Nama pengguna yang sedang Anda ajak bicara adalah: {nama_user}. "
@@ -90,7 +89,6 @@ def panggil_gemini_dengan_memori(pesan_baru, nama_user, history_user):
     )
 
     try:
-        # Inisialisasi model di sini agar system_instruction bisa mengambil variable {nama_user}
         model = genai.GenerativeModel(
             model_name='gemini-2.5-flash',
             system_instruction=instruksi_khusus
@@ -102,7 +100,7 @@ def panggil_gemini_dengan_memori(pesan_baru, nama_user, history_user):
         # 2. Kirim pesan baru
         response = chat_session.send_message(pesan_baru)
         
-        # Hapus tanda bintang (jika masih ada yang lolos) agar rapi di WA
+        # Hapus tanda bintang 
         teks_bersih = response.text.replace('*', '') 
         
         # 3. Ambil history terbaru dari object chat_session
@@ -154,10 +152,10 @@ def proses_pesan(pesan_masuk, nomor_pengirim):
     teks_lower = teks.lower()
 
     # 3. COMMAND KHUSUS
-    if teks_lower == 'reset':
+    if teks_lower in ['reset', 'ganti nama penyakit', 'ganti penyakit', 'ganti topik', 'topik baru']:
         USERS_DB[nomor_pengirim]['history'] = []
         save_users()
-        return "Riwayat percakapan telah dihapus. Kita mulai dari awal ya!"
+        return "Oke, ingatan saya tentang penyakit sebelumnya sudah dihapus. Silakan tanyakan tentang penyakit baru (misalnya demam), saya siap mengingatnya!"
 
     if teks_lower == 'ganti nama':
         USERS_DB[nomor_pengirim]['status'] = 'menunggu_nama'
