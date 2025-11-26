@@ -86,6 +86,8 @@ def panggil_gemini(pertanyaan, nama_user):
         "Peran Anda adalah menjawab pertanyaan pengguna tentang kesehatan. "
         "Jika ditanya obat, sebutkan obat bebas (OTC), dan jika tidak ada obat (OTC) sebutkan saja obat selain (OTC) dan pola hidup sehat. "
         "Akhiri jawaban dengan disclaimer bahwa Anda AI dan bukan dokter. "
+        "Langung simpulkan obat nya apa baik OTC atau bukan OTC, serta pola hidup sehat yang dianjurkan. "
+        "Jangan memberikan saran medis yang rumit atau diagnosis, buatkan jawaban yang mudah dimengerti, dan singkat. "
         "Jangan gunakan tanda bintang (*) untuk formatting, gunakan teks biasa."
     )
 
