@@ -108,7 +108,7 @@ def proses_pesan(pesan_masuk, nomor_pengirim):
     if nomor_pengirim not in USERS_DB:
         USERS_DB[nomor_pengirim] = {'nama': None, 'status': 'menunggu_nama'}
         save_users()
-        return "Halo! Selamat datang di Asisten Kesehatan.\nSebelum kita mulai, bolehkah saya tahu siapa nama panggilan Anda?"
+        return "Halo! Selamat datang di PilBot, Saya adalah asisten kesehatan AI\nSebelum kita mulai, bolehkah saya tahu siapa nama panggilan Anda?"
 
     user_data = USERS_DB[nomor_pengirim]
 
